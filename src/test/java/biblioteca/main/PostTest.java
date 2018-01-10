@@ -6,6 +6,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 import static junit.framework.Assert.assertEquals;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -21,7 +22,7 @@ public class PostTest {
     public PostTest() { 
         // Creazione del client e sua connessione a "punteggi"
         Client cli = ClientBuilder.newClient();
-        this.biblio = cli.target("http://localhost:50005/biblioteca");
+        this.biblio = cli.target("http://localhost:50004/biblioteca");
     }
     
     private JSONObject creaLibroDefault() {
@@ -55,9 +56,9 @@ public class PostTest {
         biblio.path(isbn).request().delete();
         
         // Verifica che la risposta rPost ottenuta sia "201 Created"
-        assertEquals(Response.Status.CREATED.getStatusCode(), rPost.getStatus());
+        assertEquals(Status.CREATED.getStatusCode(), rPost.getStatus());
         // Verifica che il record sia stato creato
-        assertEquals(Response.Status.OK.getStatusCode(), rGet.getStatus());
+        assertEquals(Status.OK.getStatusCode(), rGet.getStatus());
         // Verifica che il record aggiunto sia corretto
         JSONParser parser = new JSONParser();
         JSONObject p = (JSONObject) parser.parse(rGet.readEntity(String.class));
@@ -66,4 +67,44 @@ public class PostTest {
         assertEquals(libro.get("autori"), p.get("autori"));
         assertEquals(libro.get("descrizione"), p.get("descrizione"));
     }    
+    
+    @Test
+    public void testPostBadRequest() {
+        // creazione di un libro con isbn vuoto
+        JSONObject libro = creaLibroDefault();
+        libro.remove("isbn");
+        libro.put("isbn", "");
+        
+        // Tentativo di post del libro con isbn vuoto
+        Response rPost = biblio.request().post(Entity.entity(
+                            libro.toJSONString(), 
+                            MediaType.APPLICATION_JSON)
+                         );
+        
+        // Verifica che la risposta ottenuta sia "404 Bad Request"
+        assertEquals(Status.BAD_REQUEST.getStatusCode(), rPost.getStatus());
+    }
+    
+    @Test
+    public void testPostConflict() {
+        JSONObject libro = creaLibroDefault();
+        
+        // Aggiunta di un libro
+        Response rPost = biblio.request().post(Entity.entity(
+                            libro.toJSONString(), 
+                            MediaType.APPLICATION_JSON)
+                         );
+
+        // Tentativo di aggiunta dello stesso libro
+        Response rPost2 = biblio.request().post(Entity.entity(
+                            libro.toJSONString(), 
+                            MediaType.APPLICATION_JSON)
+                         );
+        
+        // Rimozione del libro aggiunto
+        biblio.path((String) libro.get("isbn")).request().delete();
+  
+        // Verifica che la risposta ottenuta sia "409 Conflict"
+        assertEquals(Status.CONFLICT.getStatusCode(), rPost2.getStatus());
+    }
 }
