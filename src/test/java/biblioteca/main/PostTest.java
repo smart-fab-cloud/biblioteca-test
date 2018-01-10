@@ -32,6 +32,7 @@ public class PostTest {
         JSONArray autori = new JSONArray();
         autori.add("Virgilio");
         libro.put("autori", autori);
+        libro.put("editore", "De Agostini");
         libro.put("descrizione", "Narra di Roma e di Troia.");
         return libro;
     }
